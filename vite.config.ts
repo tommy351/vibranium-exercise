@@ -21,4 +21,7 @@ export default defineConfig({
     }),
     tsconfigPaths(),
   ],
+  server: {
+    allowedHosts: process.env.ALLOW_ANY_HOST === 'true' || [],
+  }
 });

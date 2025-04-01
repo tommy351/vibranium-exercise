@@ -4,10 +4,12 @@ import { WebClient } from "@slack/web-api";
 import { createHmac, timingSafeEqual } from "crypto";
 import { requireEnv } from "~/util/env";
 import { logger } from "~/util/log";
+import OpenAI from "openai";
 
 const slackClient = new WebClient(requireEnv("SLACK_TOKEN"));
 const slackAppId = requireEnv("SLACK_APP_ID");
 const slackSigningSecret = requireEnv("SLACK_SIGNING_SECRET");
+const openAiClient = new OpenAI({ apiKey: requireEnv("OPENAI_API_KEY") });
 
 // https://api.slack.com/events/url_verification
 const urlVerificationEventSchema = z.object({
@@ -101,8 +103,14 @@ export async function action({ request }: ActionFunctionArgs) {
     return Response.json({ message: "OK" });
   }
 
+  const openAiResponse = await openAiClient.responses.create({
+    model: "gpt-4o",
+    input: body.event.text,
+    user: body.event.user,
+  });
+
   const postMessageResult = await slackClient.chat.postMessage({
-    text: `echo ${body.event.text}`,
+    text: openAiResponse.output_text,
     channel: body.event.channel,
   });
 

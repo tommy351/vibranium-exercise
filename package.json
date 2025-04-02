@@ -11,12 +11,15 @@
     "typecheck": "tsc"
   },
   "dependencies": {
+    "@langchain/langgraph": "^0.2.62",
+    "@langchain/langgraph-checkpoint-postgres": "^0.0.4",
+    "@langchain/openai": "^0.5.2",
     "@remix-run/node": "^2.16.3",
     "@remix-run/react": "^2.16.3",
     "@remix-run/serve": "^2.16.3",
     "@slack/web-api": "^7.9.1",
     "isbot": "^4.1.0",
-    "openai": "^4.91.0",
+    "pg": "^8.14.1",
     "pino": "^9.6.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -24,6 +27,7 @@
   },
   "devDependencies": {
     "@remix-run/dev": "^2.16.3",
+    "@types/pg": "^8.11.11",
     "@types/react": "^18.2.20",
     "@types/react-dom": "^18.2.7",
     "@typescript-eslint/eslint-plugin": "^6.7.4",

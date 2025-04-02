@@ -4,12 +4,12 @@ import { WebClient } from "@slack/web-api";
 import { createHmac, timingSafeEqual } from "crypto";
 import { requireEnv } from "~/util/env";
 import { logger } from "~/util/log";
-import OpenAI from "openai";
+import { app } from "~/util/llm";
+import { type Messages } from "@langchain/langgraph";
 
 const slackClient = new WebClient(requireEnv("SLACK_TOKEN"));
 const slackAppId = requireEnv("SLACK_APP_ID");
 const slackSigningSecret = requireEnv("SLACK_SIGNING_SECRET");
-const openAiClient = new OpenAI({ apiKey: requireEnv("OPENAI_API_KEY") });
 
 // https://api.slack.com/events/url_verification
 const urlVerificationEventSchema = z.object({
@@ -22,6 +22,7 @@ const urlVerificationEventSchema = z.object({
 const messageEventSchema = z.object({
   type: z.literal("message"),
   channel: z.string(),
+  ts: z.string(),
   user: z.string(),
   text: z.string(),
   bot_profile: z
@@ -29,6 +30,7 @@ const messageEventSchema = z.object({
       app_id: z.string(),
     })
     .optional(),
+  thread_ts: z.string().optional(),
 });
 
 const eventCallbackEventSchema = z.object({
@@ -72,13 +74,41 @@ async function verifyRequest(request: Request): Promise<string> {
 async function parseRequestBody(
   request: Request,
 ): Promise<z.infer<typeof outerEventSchema>> {
+  logger.debug({ headers: request.headers }, "Request headers");
+
   const body = await verifyRequest(request);
-  return outerEventSchema.parseAsync(JSON.parse(body));
+  const json = JSON.parse(body);
+
+  logger.debug({ body: json }, "Request body");
+
+  return outerEventSchema.parseAsync(json);
+}
+
+async function handleMessage(event: z.infer<typeof messageEventSchema>) {
+  const threadTs = event.thread_ts || event.ts;
+  const input: Messages = [{ role: "user", content: event.text }];
+
+  const output = await app.invoke(
+    { messages: input },
+    { configurable: { thread_id: `${event.channel}-${threadTs}` } },
+  );
+
+  logger.debug({ output }, "Workflow executed successfully");
+
+  if (!output.messages.length) {
+    return;
+  }
+
+  const postMessageResult = await slackClient.chat.postMessage({
+    text: output.messages[output.messages.length - 1].text,
+    channel: event.channel,
+    thread_ts: threadTs,
+  });
+
+  logger.debug({ result: postMessageResult }, "Message sent successfully");
 }
 
 export async function action({ request }: ActionFunctionArgs) {
-  logger.debug({ req: request });
-
   let body: Awaited<ReturnType<typeof parseRequestBody>>;
 
   try {
@@ -100,26 +130,10 @@ export async function action({ request }: ActionFunctionArgs) {
 
   // Ignore events sent by the bot itself
   if (body.event.bot_profile?.app_id === slackAppId) {
-    return Response.json({ message: "OK" });
+    return new Response("Ignored", { status: 202 });
   }
 
-  const openAiResponse = await openAiClient.responses.create({
-    model: "gpt-4o",
-    input: body.event.text,
-    user: body.event.user,
-  });
+  void handleMessage(body.event);
 
-  const postMessageResult = await slackClient.chat.postMessage({
-    text: openAiResponse.output_text,
-    channel: body.event.channel,
-  });
-
-  if (!postMessageResult.ok) {
-    logger.error({ result: postMessageResult }, "Failed to send Slack message");
-    return new Response("Failed to send a Slack message", { status: 500 });
-  }
-
-  logger.debug({ result: postMessageResult }, "Message sent successfully");
-
-  return new Response("OK");
+  return new Response("Received", { status: 202 });
 }

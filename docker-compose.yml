@@ -1,5 +1,9 @@
+x-db-name: &db-name vibranium
+x-db-user: &db-user vibranium
+x-db-password: &db-password secret-vibranium-password
+
 services:
-  cloudflared:
+  tunnel:
     image: cloudflare/cloudflared:2025.2.1
     command: tunnel --no-autoupdate run
     env_file: .env
@@ -18,9 +22,32 @@ services:
     command: run dev -- --host
     environment:
       ALLOW_ANY_HOST: "true"
+      DB_HOST: postgres
+      DB_USER: *db-user
+      DB_PASSWORD: *db-password
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5173"]
       start_period: 5s
       interval: 5s
       timeout: 5s
       retries: 10
+    depends_on:
+      postgres:
+        condition: service_healthy
+  postgres:
+    image: pgvector/pgvector:0.8.0-pg17
+    environment:
+      POSTGRES_DB: *db-name
+      POSTGRES_USER: *db-user
+      POSTGRES_PASSWORD: *db-password
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready -U $POSTGRES_USER"]
+      start_period: 5s
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pg-data:

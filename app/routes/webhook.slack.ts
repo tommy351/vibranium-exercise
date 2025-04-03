@@ -10,10 +10,11 @@ import {
   postMessage,
 } from "~/util/slack";
 import { runInBackground } from "~/util/queue";
+import { db } from "~/db/drizzle";
+import { logsTable } from "~/db/schema";
 
 async function handleMessage(event: MessageEvent) {
   const threadTs = event.thread_ts || event.ts;
-
   const output = await graph.invoke(
     {
       messages: [new HumanMessage(event.text)],
@@ -40,19 +41,23 @@ async function handleMessage(event: MessageEvent) {
   const postMessageResult = await postMessage({
     channel: event.channel,
     thread_ts: threadTs,
+    // TODO: Parse markdown
     text,
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text,
-        },
-      },
-    ],
   });
 
   logger.debug({ result: postMessageResult }, "Message sent successfully");
+
+  await db
+    .insert(logsTable)
+    .values({
+      input: event.text,
+      output: text,
+      userId: event.user,
+      threadId: threadTs,
+    })
+    .catch((err) => {
+      logger.error({ err }, "Failed to insert log");
+    });
 }
 
 export async function action({ request }: ActionFunctionArgs) {

@@ -5,7 +5,9 @@ import {
   timestamp,
   jsonb,
   index,
+  text,
 } from "drizzle-orm/pg-core";
+import { v7 as uuidV7 } from "uuid";
 
 export const responsesTable = pgTable(
   "responses",
@@ -23,3 +25,14 @@ export const responsesTable = pgTable(
     ),
   ],
 );
+
+export const logsTable = pgTable("logs", {
+  id: uuid()
+    .primaryKey()
+    .$defaultFn(() => uuidV7()),
+  userId: text().notNull(),
+  threadId: text().notNull(),
+  input: text().notNull(),
+  output: text().notNull(),
+  createdAt: timestamp().notNull().defaultNow(),
+});

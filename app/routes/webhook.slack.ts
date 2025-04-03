@@ -1,7 +1,7 @@
 import { ActionFunctionArgs } from "@remix-run/node";
 import { logger } from "~/util/log";
-import { app } from "~/util/llm";
-import { type Messages } from "@langchain/langgraph";
+import { graph } from "~/llm/graph";
+import { HumanMessage } from "@langchain/core/messages";
 import {
   isBotMessage,
   type MessageEvent,
@@ -9,14 +9,25 @@ import {
   parseEventRequest,
   postMessage,
 } from "~/util/slack";
+import { runInBackground } from "~/util/queue";
 
 async function handleMessage(event: MessageEvent) {
   const threadTs = event.thread_ts || event.ts;
-  const input: Messages = [{ role: "user", content: event.text }];
 
-  const output = await app.invoke(
-    { messages: input },
-    { configurable: { thread_id: `${event.channel}-${threadTs}` } },
+  const output = await graph.invoke(
+    {
+      messages: [new HumanMessage(event.text)],
+    },
+    {
+      configurable: {
+        thread_id: `${event.channel}-${threadTs}`,
+      },
+      metadata: {
+        user: event.user,
+        channel: event.channel,
+        thread: threadTs,
+      },
+    },
   );
 
   logger.debug({ output }, "Workflow executed successfully");
@@ -59,7 +70,8 @@ export async function action({ request }: ActionFunctionArgs) {
     return new Response("Ignored", { status: 202 });
   }
 
-  void handleMessage(body.event);
+  // Run the handler in background
+  runInBackground(() => handleMessage(body.event));
 
   return new Response("Received", { status: 202 });
 }

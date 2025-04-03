@@ -4,9 +4,10 @@ import { z } from "zod";
 import { requireEnv } from "./env";
 import { logger } from "./log";
 
+const APP_ID = requireEnv("SLACK_APP_ID");
+const SIGNING_SECRET = requireEnv("SLACK_SIGNING_SECRET");
+
 const client = new WebClient(requireEnv("SLACK_TOKEN"));
-const appId = requireEnv("SLACK_APP_ID");
-const signingSecret = requireEnv("SLACK_SIGNING_SECRET");
 
 // https://api.slack.com/events/url_verification
 const urlVerificationEventSchema = z.object({
@@ -60,7 +61,7 @@ async function verifyRequest(request: Request): Promise<string> {
   const body = await request.text();
   const expected =
     "v0=" +
-    createHmac("sha256", signingSecret)
+    createHmac("sha256", SIGNING_SECRET)
       .update(`v0:${timestamp}:${body}`, "utf8")
       .digest("hex");
   const valid = timingSafeEqual(
@@ -88,5 +89,5 @@ export function postMessage(message: ChatPostMessageArguments) {
 }
 
 export function isBotMessage(event: MessageEvent) {
-  return event.bot_profile?.app_id === appId;
+  return event.bot_profile?.app_id === APP_ID;
 }

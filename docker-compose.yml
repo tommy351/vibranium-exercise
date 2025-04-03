@@ -10,7 +10,7 @@ services:
     depends_on:
       dev:
         condition: service_healthy
-  dev:
+  node: &service-node
     build:
       context: .
       dockerfile: Dockerfile
@@ -18,13 +18,30 @@ services:
     volumes:
       - .:/app:rw,z
     working_dir: /app
-    entrypoint: npm
-    command: run dev -- --host
-    environment:
-      ALLOW_ANY_HOST: "true"
+    environment: &service-node-env
       DB_HOST: postgres
       DB_USER: *db-user
+      DB_NAME: *db-name
       DB_PASSWORD: *db-password
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+  dev:
+    <<: *service-node
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    # image: node:22
+    # env_file: .env
+    # volumes:
+    #   - .:/app:rw,z
+    # working_dir: /app
+    entrypoint: pnpm
+    command: dev --host
+    environment:
+      <<: *service-node-env
+      ALLOW_ANY_HOST: "true"
+      # DB_HOST: postgres
+      # DB_USER: *db-user
+      # DB_PASSWORD: *db-password
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5173"]
       start_period: 5s
@@ -40,14 +57,22 @@ services:
       POSTGRES_DB: *db-name
       POSTGRES_USER: *db-user
       POSTGRES_PASSWORD: *db-password
+    command: postgres -c listen_addresses=*
     volumes:
       - pg-data:/var/lib/postgresql/data
+      - ./test/pg-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD", "pg_isready -U $POSTGRES_USER"]
       start_period: 5s
       interval: 5s
       timeout: 5s
       retries: 10
+  drizzle:
+    <<: *service-node
+    entrypoint: pnpm drizzle-kit
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   pg-data:

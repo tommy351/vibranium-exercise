@@ -56,6 +56,9 @@ importers:
       isbot:
         specifier: ^4.1.0
         version: 4.4.0
+      jose:
+        specifier: ^6.0.10
+        version: 6.0.10
       knex:
         specifier: ^3.1.0
         version: 3.1.0(pg@8.14.1)
@@ -3393,6 +3396,9 @@ packages:
   jiti@2.4.2:
     resolution: {integrity: sha512-rg9zJN+G4n2nfJl5MW3BMygZX56zKPNVEYYqq7adpmMh4Jn2QNEwhvQlFy6jPVdcod7txZtKHWnyZiA3a0zP7A==}
     hasBin: true
+
+  jose@6.0.10:
+    resolution: {integrity: sha512-skIAxZqcMkOrSwjJvplIPYrlXGpxTPnro2/QWTDCxAdWQrSTV5/KqspMWmi5WAx5+ULswASJiZ0a+1B/Lxt9cw==}
 
   js-tiktoken@1.0.19:
     resolution: {integrity: sha512-XC63YQeEcS47Y53gg950xiZ4IWmkfMe4p2V9OSaBt26q+p47WHn18izuXzSclCI73B7yGqtfRsT6jcZQI0y08g==}
@@ -8704,6 +8710,8 @@ snapshots:
   javascript-stringify@2.1.0: {}
 
   jiti@2.4.2: {}
+
+  jose@6.0.10: {}
 
   js-tiktoken@1.0.19:
     dependencies:

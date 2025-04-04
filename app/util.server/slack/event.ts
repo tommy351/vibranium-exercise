@@ -1,7 +1,7 @@
 import { ChatPostMessageArguments, WebClient } from "@slack/web-api";
 import { createHmac, timingSafeEqual } from "crypto";
 import { z } from "zod";
-import { requireEnv } from "./env";
+import { requireEnv } from "~/util.server/env";
 
 const APP_ID = requireEnv("SLACK_APP_ID");
 const SIGNING_SECRET = requireEnv("SLACK_SIGNING_SECRET");

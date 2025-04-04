@@ -1,4 +1,4 @@
-import { ActionFunctionArgs } from "@remix-run/node";
+import type { ActionFunctionArgs } from "@remix-run/node";
 import { logger } from "~/util.server/log";
 import { graph } from "~/llm.server/graph";
 import { HumanMessage } from "@langchain/core/messages";
@@ -8,7 +8,7 @@ import {
   type OuterEvent,
   parseEventRequest,
   postMessage,
-} from "~/util.server/slack";
+} from "~/util.server/slack/event";
 import { runInBackground } from "~/util.server/queue";
 import { db } from "~/db.server/drizzle";
 import { logsTable } from "~/db.server/schema";

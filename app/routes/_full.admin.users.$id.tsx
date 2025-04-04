@@ -1,8 +1,8 @@
-import { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
+import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { Link, useLoaderData, useParams } from "@remix-run/react";
 import { asc, desc, eq } from "drizzle-orm";
-import { PageTitle } from "~/components/admin/page-title";
-import { SectionTitle } from "~/components/admin/section-title";
+import { PageTitle } from "~/components/base/page-title";
+import { SectionTitle } from "~/components/base/section-title";
 import {
   Table,
   TableBody,
@@ -64,7 +64,7 @@ export default function AdminUserPage() {
               <TableCell>
                 <Link to={`/admin/threads/${thread.id}`}>{thread.id}</Link>
               </TableCell>
-              <TableCell>{thread.createdAt.toLocaleString()}</TableCell>
+              <TableCell>{thread.createdAt.toISOString()}</TableCell>
             </TableRow>
           ))}
         </TableBody>

@@ -1,6 +1,6 @@
-import { MetaFunction } from "@remix-run/node";
+import type { MetaFunction } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
-import { PageTitle } from "~/components/admin/page-title";
+import { PageTitle } from "~/components/base/page-title";
 import {
   Table,
   TableBody,

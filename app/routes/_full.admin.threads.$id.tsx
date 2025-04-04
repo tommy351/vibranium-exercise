@@ -1,8 +1,8 @@
-import { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
+import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { useLoaderData, useParams } from "@remix-run/react";
 import { asc, eq } from "drizzle-orm";
 import Markdown from "react-markdown";
-import { PageTitle } from "~/components/admin/page-title";
+import { PageTitle } from "~/components/base/page-title";
 import {
   Table,
   TableBody,
@@ -56,7 +56,7 @@ export default function AdminThreadPage() {
           {logs.map((log) => (
             <TableRow key={log.id}>
               <TableCell className="align-top">
-                {log.createdAt.toLocaleString()}
+                {log.createdAt.toISOString()}
               </TableCell>
               <RichTextCell>{log.input}</RichTextCell>
               <RichTextCell>{log.output}</RichTextCell>

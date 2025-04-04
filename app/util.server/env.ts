@@ -5,3 +5,5 @@ export function requireEnv(name: string): string {
   assert(value, `Environment variable "${name}" is not defined`);
   return value;
 }
+
+export const BASE_URL = new URL(requireEnv("BASE_URL"));

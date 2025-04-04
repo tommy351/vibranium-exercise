@@ -7,10 +7,10 @@ import {
 import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
 import { ChatOpenAI } from "@langchain/openai";
 import { SystemMessage } from "@langchain/core/messages";
-import { pool } from "~/db/pool";
-import { logger } from "~/util/log";
+import { pool } from "~/db.server/pool";
+import { logger } from "~/util.server/log";
 import { findPastResponse, generateEmbedding, saveResponse } from "./vector";
-import { runInBackground } from "~/util/queue";
+import { runInBackground } from "~/util.server/queue";
 import { encodeMessage, encodeMessages } from "./message";
 
 const NODE_MODEL = "model";

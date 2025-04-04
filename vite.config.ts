@@ -1,6 +1,7 @@
 import { vitePlugin as remix } from "@remix-run/dev";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
+import tailwind from "@tailwindcss/vite";
 
 declare module "@remix-run/node" {
   interface Future {
@@ -10,6 +11,7 @@ declare module "@remix-run/node" {
 
 export default defineConfig({
   plugins: [
+    tailwind(),
     remix({
       future: {
         v3_fetcherPersist: true,
@@ -22,6 +24,6 @@ export default defineConfig({
     tsconfigPaths(),
   ],
   server: {
-    allowedHosts: process.env.ALLOW_ANY_HOST === 'true' || [],
-  }
+    allowedHosts: process.env.ALLOW_ANY_HOST === "true" || [],
+  },
 });

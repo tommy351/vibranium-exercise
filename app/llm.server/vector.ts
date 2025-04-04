@@ -7,10 +7,10 @@ import {
 } from "drizzle-orm";
 import { OpenAIEmbeddings } from "@langchain/openai";
 import { BaseMessage, getBufferString } from "@langchain/core/messages";
-import { db } from "~/db/drizzle";
-import { responsesTable } from "~/db/schema";
+import { db } from "~/db.server/drizzle";
+import { responsesTable } from "~/db.server/schema";
 import { decodeMessage } from "./message";
-import { logger } from "~/util/log";
+import { logger } from "~/util.server/log";
 
 // Range from 0 to 1
 const SIMILARITY_THRESHOLD = 0.99;

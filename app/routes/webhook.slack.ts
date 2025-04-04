@@ -1,6 +1,6 @@
 import { ActionFunctionArgs } from "@remix-run/node";
-import { logger } from "~/util/log";
-import { graph } from "~/llm/graph";
+import { logger } from "~/util.server/log";
+import { graph } from "~/llm.server/graph";
 import { HumanMessage } from "@langchain/core/messages";
 import {
   isBotMessage,
@@ -8,10 +8,10 @@ import {
   type OuterEvent,
   parseEventRequest,
   postMessage,
-} from "~/util/slack";
-import { runInBackground } from "~/util/queue";
-import { db } from "~/db/drizzle";
-import { logsTable } from "~/db/schema";
+} from "~/util.server/slack";
+import { runInBackground } from "~/util.server/queue";
+import { db } from "~/db.server/drizzle";
+import { logsTable } from "~/db.server/schema";
 
 async function handleMessage(event: MessageEvent) {
   const threadTs = event.thread_ts || event.ts;

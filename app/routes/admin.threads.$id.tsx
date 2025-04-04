@@ -1,6 +1,7 @@
 import { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { useLoaderData, useParams } from "@remix-run/react";
 import { asc, eq } from "drizzle-orm";
+import Markdown from "react-markdown";
 import { PageTitle } from "~/components/admin/page-title";
 import {
   Table,
@@ -57,16 +58,20 @@ export default function AdminThreadPage() {
               <TableCell className="align-top">
                 {log.createdAt.toLocaleString()}
               </TableCell>
-              <TableCell className="whitespace-pre align-top">
-                {log.input}
-              </TableCell>
-              <TableCell className="whitespace-pre align-top">
-                {log.output}
-              </TableCell>
+              <RichTextCell>{log.input}</RichTextCell>
+              <RichTextCell>{log.output}</RichTextCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
     </>
+  );
+}
+
+function RichTextCell({ children }: { children: string }) {
+  return (
+    <TableCell className="whitespace-normal align-top prose prose-sm">
+      <Markdown>{children}</Markdown>
+    </TableCell>
   );
 }

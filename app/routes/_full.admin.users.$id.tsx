@@ -3,6 +3,7 @@ import { Link, useLoaderData, useParams } from "@remix-run/react";
 import { asc, desc, eq } from "drizzle-orm";
 import { PageTitle } from "~/components/base/page-title";
 import { SectionTitle } from "~/components/base/section-title";
+import { DateTime } from "~/components/base/time";
 import {
   Table,
   TableBody,
@@ -64,7 +65,9 @@ export default function AdminUserPage() {
               <TableCell>
                 <Link to={`/admin/threads/${thread.id}`}>{thread.id}</Link>
               </TableCell>
-              <TableCell>{thread.createdAt.toISOString()}</TableCell>
+              <TableCell>
+                <DateTime value={thread.createdAt} />
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>

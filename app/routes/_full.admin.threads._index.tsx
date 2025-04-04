@@ -2,6 +2,7 @@ import { MetaFunction } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import { asc, desc } from "drizzle-orm";
 import { PageTitle } from "~/components/base/page-title";
+import { DateTime } from "~/components/base/time";
 import {
   Table,
   TableBody,
@@ -63,7 +64,9 @@ export default function AdminThreadsPage() {
                   {thread.userId}
                 </Link>
               </TableCell>
-              <TableCell>{thread.createdAt.toISOString()}</TableCell>
+              <TableCell>
+                <DateTime value={thread.createdAt} />
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>

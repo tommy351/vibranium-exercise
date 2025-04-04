@@ -3,6 +3,7 @@ import { useLoaderData, useParams } from "@remix-run/react";
 import { asc, eq } from "drizzle-orm";
 import Markdown from "react-markdown";
 import { PageTitle } from "~/components/base/page-title";
+import { DateTime } from "~/components/base/time";
 import {
   Table,
   TableBody,
@@ -56,7 +57,7 @@ export default function AdminThreadPage() {
           {logs.map((log) => (
             <TableRow key={log.id}>
               <TableCell className="align-top">
-                {log.createdAt.toISOString()}
+                <DateTime value={log.createdAt} />
               </TableCell>
               <RichTextCell>{log.input}</RichTextCell>
               <RichTextCell>{log.output}</RichTextCell>

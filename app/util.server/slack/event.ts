@@ -2,17 +2,25 @@ import { ChatPostMessageArguments, WebClient } from "@slack/web-api";
 import { createHmac, timingSafeEqual } from "crypto";
 import { z } from "zod";
 import { requireEnv } from "~/util.server/env";
+import { SLACK_TOKEN } from "./config";
 
 const APP_ID = requireEnv("SLACK_APP_ID");
 const SIGNING_SECRET = requireEnv("SLACK_SIGNING_SECRET");
 
-const client = new WebClient(requireEnv("SLACK_TOKEN"));
+const client = new WebClient(SLACK_TOKEN);
 
 // https://api.slack.com/events/url_verification
 const urlVerificationEventSchema = z.object({
   type: z.literal("url_verification"),
   token: z.string(),
   challenge: z.string(),
+});
+
+// https://api.slack.com/types/file
+const fileSchema = z.object({
+  title: z.string(),
+  mimetype: z.string(),
+  url_private: z.string(),
 });
 
 // https://api.slack.com/events/message
@@ -28,6 +36,7 @@ const messageEventSchema = z.object({
     })
     .optional(),
   thread_ts: z.string().optional(),
+  files: z.array(fileSchema).optional(),
 });
 
 export type MessageEvent = z.infer<typeof messageEventSchema>;

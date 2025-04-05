@@ -14,11 +14,29 @@ import { db } from "~/db.server/drizzle";
 import { logsTable } from "~/db.server/schema";
 import { generateBlocksFromMarkdown } from "~/util.server/slack/markdown";
 
+// MIME types started with `text/` are automatically supported.
+const SUPPORTED_FILE_TYPES = new Set([
+  "application/javascript",
+  "application/json",
+  "application/xml",
+]);
+
+function isSupportedFileType(mimeType: string) {
+  return mimeType.startsWith("text/") || SUPPORTED_FILE_TYPES.has(mimeType);
+}
+
 async function handleMessage(event: MessageEvent) {
   const threadTs = event.thread_ts || event.ts;
   const output = await graph.invoke(
     {
       messages: [new HumanMessage(event.text)],
+      files:
+        event.files?.flatMap((file) => {
+          if (!isSupportedFileType(file.mimetype)) return [];
+          return [
+            { name: file.title, type: file.mimetype, url: file.url_private },
+          ];
+        }) ?? [],
     },
     {
       configurable: {
@@ -32,7 +50,7 @@ async function handleMessage(event: MessageEvent) {
     },
   );
 
-  logger.debug({ output }, "Graph invoked successfully");
+  logger.debug("Graph invoked successfully");
 
   if (!output.messages.length) {
     return;

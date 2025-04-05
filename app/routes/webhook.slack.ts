@@ -12,6 +12,7 @@ import {
 import { runInBackground } from "~/util.server/queue";
 import { db } from "~/db.server/drizzle";
 import { logsTable } from "~/db.server/schema";
+import { generateBlocksFromMarkdown } from "~/util.server/slack/markdown";
 
 async function handleMessage(event: MessageEvent) {
   const threadTs = event.thread_ts || event.ts;
@@ -41,8 +42,8 @@ async function handleMessage(event: MessageEvent) {
   const postMessageResult = await postMessage({
     channel: event.channel,
     thread_ts: threadTs,
-    // TODO: Parse markdown
     text,
+    blocks: generateBlocksFromMarkdown(text),
   });
 
   logger.debug({ result: postMessageResult }, "Message sent successfully");

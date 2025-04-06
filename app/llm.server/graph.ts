@@ -59,6 +59,7 @@ export interface File {
 }
 
 export interface User {
+  id: string;
   name?: string;
   firstName?: string;
   lastName?: string;

@@ -1,3 +1,4 @@
+import { isNotNull } from "drizzle-orm";
 import {
   pgTable,
   uuid,
@@ -7,8 +8,12 @@ import {
   index,
   text,
   unique,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { v7 as uuidV7 } from "uuid";
+import { v7 as genUuidV7 } from "uuid";
+import type { MessageChunk } from "~/db/message";
+
+const uuidV7 = uuid().$defaultFn(() => genUuidV7());
 
 export const responsesTable = pgTable(
   "responses",
@@ -27,23 +32,10 @@ export const responsesTable = pgTable(
   ],
 );
 
-export const logsTable = pgTable("logs", {
-  id: uuid()
-    .primaryKey()
-    .$defaultFn(() => uuidV7()),
-  userId: text().notNull(),
-  threadId: text().notNull(),
-  input: text().notNull(),
-  output: text().notNull(),
-  createdAt: timestamp().notNull().defaultNow(),
-});
-
 export const usersTable = pgTable(
   "users",
   {
-    id: uuid()
-      .primaryKey()
-      .$defaultFn(() => uuidV7()),
+    id: uuidV7.primaryKey(),
     name: text(),
     email: text(),
     firstName: text(),
@@ -56,4 +48,43 @@ export const usersTable = pgTable(
     updatedAt: timestamp().notNull().defaultNow(),
   },
   (table) => [unique().on(table.slackTeamId, table.slackUserId)],
+);
+
+export const threadsTable = pgTable(
+  "threads",
+  {
+    id: uuidV7.primaryKey(),
+    userId: uuid()
+      .notNull()
+      .references(() => usersTable.id, {
+        onUpdate: "cascade",
+        onDelete: "cascade",
+      }),
+    slackThreadTs: text(),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => [
+    index().on(table.userId),
+    uniqueIndex()
+      .onOnly(table.userId, table.slackThreadTs)
+      .where(isNotNull(table.slackThreadTs)),
+  ],
+);
+
+export const messagesTable = pgTable(
+  "messages",
+  {
+    id: uuidV7.primaryKey(),
+    threadId: uuid()
+      .notNull()
+      .references(() => threadsTable.id, {
+        onUpdate: "cascade",
+        onDelete: "cascade",
+      }),
+    type: text().notNull(),
+    content: jsonb().notNull().$type<MessageChunk[]>(),
+    createdAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => [index().on(table.threadId)],
 );

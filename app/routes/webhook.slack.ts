@@ -12,10 +12,11 @@ import {
 } from "~/util.server/slack/event";
 import { runInBackground } from "~/util.server/queue";
 import { db } from "~/db.server/drizzle";
-import { logsTable, usersTable } from "~/db.server/schema";
+import { messagesTable, threadsTable, usersTable } from "~/db.server/schema";
 import { generateBlocksFromMarkdown } from "~/util.server/slack/markdown";
 import { slackClient } from "~/util.server/slack/client";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, type InferInsertModel, isNotNull, sql } from "drizzle-orm";
+import { encodeMessageContent } from "~/llm.server/message";
 
 // MIME types started with `text/` are automatically supported.
 const SUPPORTED_FILE_TYPES = new Set([
@@ -31,15 +32,11 @@ function isSupportedFileType(mimeType: string) {
 async function getSlackUser(id: string) {
   const res = await slackClient.users.info({ user: id });
 
-  if (!res.user) {
-    logger.error(
-      { userId: id, response: res },
-      "Failed to fetch Slack user info",
-    );
-    return;
+  if (!res.ok) {
+    throw new Error("Failed to fetch Slack user info", { cause: res });
   }
 
-  return res.user;
+  return res.user!;
 }
 
 async function getUser({
@@ -48,9 +45,10 @@ async function getUser({
 }: {
   userId: string;
   teamId: string;
-}): Promise<User | undefined> {
+}): Promise<User> {
   const users = await db
     .select({
+      id: usersTable.id,
       name: usersTable.name,
       firstName: usersTable.firstName,
       lastName: usersTable.lastName,
@@ -69,18 +67,17 @@ async function getUser({
     const user = users[0];
 
     return {
-      name: user.name || undefined,
-      firstName: user.firstName || undefined,
-      lastName: user.lastName || undefined,
-      realName: user.realName || undefined,
-      displayName: user.displayName || undefined,
+      id: user.id,
+      ...(user.name && { name: user.name }),
+      ...(user.firstName && { firstName: user.firstName }),
+      ...(user.lastName && { lastName: user.lastName }),
+      ...(user.realName && { realName: user.realName }),
+      ...(user.displayName && { displayName: user.displayName }),
     };
   }
 
   const slackUser = await getSlackUser(userId);
-  if (!slackUser) return;
-
-  const user: User = {
+  const user: Omit<User, "id"> = {
     name: slackUser.name,
     firstName: slackUser.profile?.first_name,
     lastName: slackUser.profile?.last_name,
@@ -88,7 +85,7 @@ async function getUser({
     displayName: slackUser.profile?.display_name,
   };
 
-  await db
+  const result = await db
     .insert(usersTable)
     .values({
       ...user,
@@ -107,9 +104,35 @@ async function getUser({
         email: sql`EXCLUDED.email`,
         updatedAt: sql`NOW()`,
       },
-    });
+    })
+    .returning({ id: usersTable.id });
 
-  return user;
+  return { ...result[0], ...user };
+}
+
+async function insertThread({
+  userId,
+  threadTs,
+}: {
+  userId: string;
+  threadTs: string;
+}) {
+  const result = await db
+    .insert(threadsTable)
+    .values({
+      userId,
+      slackThreadTs: threadTs,
+    })
+    .onConflictDoUpdate({
+      target: [threadsTable.userId, threadsTable.slackThreadTs],
+      targetWhere: isNotNull(threadsTable.slackThreadTs),
+      set: {
+        updatedAt: sql`NOW()`,
+      },
+    })
+    .returning({ id: threadsTable.id });
+
+  return result[0];
 }
 
 function prepareFiles(event: MessageEvent) {
@@ -127,15 +150,20 @@ async function handleMessage(context: EventCallbackEvent, event: MessageEvent) {
     teamId: context.team_id,
   });
   const threadTs = event.thread_ts || event.ts;
+  const thread = await insertThread({
+    userId: user.id,
+    threadTs,
+  });
+  const inputMessage = new HumanMessage(event.text);
   const output = await graph.invoke(
     {
-      messages: [new HumanMessage(event.text)],
+      messages: [inputMessage],
       files: prepareFiles(event),
       user,
     },
     {
       configurable: {
-        thread_id: `${event.channel}-${threadTs}`,
+        thread_id: thread.id,
       },
     },
   );
@@ -146,7 +174,8 @@ async function handleMessage(context: EventCallbackEvent, event: MessageEvent) {
     return;
   }
 
-  const text = output.messages[output.messages.length - 1].text;
+  const lastMessage = output.messages[output.messages.length - 1];
+  const text = lastMessage.text;
   const postMessageResult = await postMessage({
     channel: event.channel,
     thread_ts: threadTs,
@@ -154,19 +183,24 @@ async function handleMessage(context: EventCallbackEvent, event: MessageEvent) {
     blocks: generateBlocksFromMarkdown(text),
   });
 
-  logger.debug({ result: postMessageResult }, "Message sent successfully");
+  if (!postMessageResult.ok) {
+    logger.error({ result: postMessageResult }, "Failed to send message");
+    return;
+  }
 
-  await db
-    .insert(logsTable)
-    .values({
-      input: event.text,
-      output: text,
-      userId: event.user,
-      threadId: threadTs,
-    })
-    .catch((err) => {
-      logger.error({ err }, "Failed to insert log");
-    });
+  logger.debug("Message sent successfully");
+
+  const messages = output.messages
+    .slice(output.messages.lastIndexOf(inputMessage))
+    .map(
+      (msg): InferInsertModel<typeof messagesTable> => ({
+        threadId: thread.id,
+        type: msg.getType(),
+        content: encodeMessageContent(msg.content),
+      }),
+    );
+
+  await db.insert(messagesTable).values(messages);
 }
 
 export async function action({ request }: ActionFunctionArgs) {

@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "~/components/ui/table";
 import { db } from "~/db.server/drizzle";
-import { logsTable } from "~/db.server/schema";
+import { messagesTable, threadsTable } from "~/db.server/schema";
 
 export const meta: MetaFunction = ({ params }) => {
   return [{ title: `Thread: ${params.id}` }];
@@ -24,23 +24,28 @@ export async function loader({ params }: LoaderFunctionArgs) {
     throw new Response("Not found", { status: 404 });
   }
 
-  const result = db
-    .select({
-      id: logsTable.id,
-      input: logsTable.input,
-      output: logsTable.output,
-      createdAt: logsTable.createdAt,
-    })
-    .from(logsTable)
-    .where(eq(logsTable.threadId, params.id))
-    .orderBy(asc(logsTable.createdAt));
+  const threads = await db
+    .select()
+    .from(threadsTable)
+    .where(eq(threadsTable.id, params.id))
+    .limit(1);
 
-  return result;
+  if (!threads.length) {
+    throw new Response("Thread not found", { status: 404 });
+  }
+
+  const messages = await db
+    .select()
+    .from(messagesTable)
+    .where(eq(messagesTable.threadId, params.id))
+    .orderBy(asc(messagesTable.id));
+
+  return { thread: threads[0], messages };
 }
 
 export default function AdminThreadPage() {
   const { id } = useParams();
-  const logs = useLoaderData<typeof loader>();
+  const { messages } = useLoaderData<typeof loader>();
 
   return (
     <>
@@ -49,30 +54,26 @@ export default function AdminThreadPage() {
         <TableHeader>
           <TableRow>
             <TableHead>Time</TableHead>
-            <TableHead>Input</TableHead>
+            <TableHead>Type</TableHead>
             <TableHead>Output</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {logs.map((log) => (
-            <TableRow key={log.id}>
+          {messages.map((message) => (
+            <TableRow key={message.id}>
               <TableCell className="align-top">
-                <DateTime value={log.createdAt} />
+                <DateTime value={message.createdAt} />
               </TableCell>
-              <RichTextCell>{log.input}</RichTextCell>
-              <RichTextCell>{log.output}</RichTextCell>
+              <TableCell className="align-top">{message.type}</TableCell>
+              <TableCell className="whitespace-normal align-top prose prose-sm">
+                {message.content.map((chunk, index) => (
+                  <Markdown key={index}>{chunk.text}</Markdown>
+                ))}
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
     </>
-  );
-}
-
-function RichTextCell({ children }: { children: string }) {
-  return (
-    <TableCell className="whitespace-normal align-top prose prose-sm">
-      <Markdown>{children}</Markdown>
-    </TableCell>
   );
 }

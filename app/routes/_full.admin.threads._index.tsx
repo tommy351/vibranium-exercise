@@ -1,6 +1,6 @@
 import { MetaFunction } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
-import { asc, desc } from "drizzle-orm";
+import { desc } from "drizzle-orm";
 import { PageTitle } from "~/components/base/page-title";
 import { DateTime } from "~/components/base/time";
 import {
@@ -12,35 +12,27 @@ import {
   TableRow,
 } from "~/components/ui/table";
 import { db } from "~/db.server/drizzle";
-import { logsTable } from "~/db.server/schema";
+import { threadsTable } from "~/db.server/schema";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Threads" }];
 };
 
 export async function loader() {
-  const cte = db.$with("first_threads").as(
-    db
-      .selectDistinctOn([logsTable.threadId], {
-        id: logsTable.threadId,
-        userId: logsTable.userId,
-        createdAt: logsTable.createdAt,
-      })
-      .from(logsTable)
-      .orderBy(logsTable.threadId, asc(logsTable.createdAt)),
-  );
+  const threads = await db
+    .select({
+      id: threadsTable.id,
+      userId: threadsTable.userId,
+      createdAt: threadsTable.createdAt,
+    })
+    .from(threadsTable)
+    .orderBy(desc(threadsTable.id));
 
-  const result = await db
-    .with(cte)
-    .select()
-    .from(cte)
-    .orderBy(desc(cte.createdAt));
-
-  return result;
+  return { threads };
 }
 
 export default function AdminThreadsPage() {
-  const threads = useLoaderData<typeof loader>();
+  const { threads } = useLoaderData<typeof loader>();
 
   return (
     <>

@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { Link, useLoaderData, useParams } from "@remix-run/react";
-import { asc, desc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { PageTitle } from "~/components/base/page-title";
 import { SectionTitle } from "~/components/base/section-title";
 import { DateTime } from "~/components/base/time";
@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "~/components/ui/table";
 import { db } from "~/db.server/drizzle";
-import { logsTable } from "~/db.server/schema";
+import { threadsTable, usersTable } from "~/db.server/schema";
 
 export const meta: MetaFunction = ({ params }) => {
   return [{ title: `User: ${params.id}` }];
@@ -24,29 +24,28 @@ export async function loader({ params }: LoaderFunctionArgs) {
     throw new Response("Not found", { status: 404 });
   }
 
-  const cte = db.$with("first_threads").as(
-    db
-      .selectDistinctOn([logsTable.threadId], {
-        id: logsTable.threadId,
-        createdAt: logsTable.createdAt,
-      })
-      .from(logsTable)
-      .where(eq(logsTable.userId, params.id))
-      .orderBy(logsTable.threadId, asc(logsTable.createdAt)),
-  );
+  const users = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.id, params.id))
+    .limit(1);
 
-  const result = await db
-    .with(cte)
+  if (!users.length) {
+    throw new Response("User not found", { status: 404 });
+  }
+
+  const threads = await db
     .select()
-    .from(cte)
-    .orderBy(desc(cte.createdAt));
+    .from(threadsTable)
+    .where(eq(threadsTable.userId, params.id))
+    .orderBy(desc(threadsTable.id));
 
-  return result;
+  return { threads };
 }
 
 export default function AdminUserPage() {
   const { id } = useParams();
-  const threads = useLoaderData<typeof loader>();
+  const { threads } = useLoaderData<typeof loader>();
 
   return (
     <>

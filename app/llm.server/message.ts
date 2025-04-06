@@ -1,9 +1,11 @@
 import {
   mapChatMessagesToStoredMessages,
   mapStoredMessageToChatMessage,
+  MessageContent,
   type BaseMessage,
 } from "@langchain/core/messages";
 import { z } from "zod";
+import { MessageChunk } from "~/db/message";
 
 const encodedMessageSchema = z.object({
   type: z.string(),
@@ -46,5 +48,19 @@ export function decodeMessage(input: unknown) {
       additional_kwargs: result.data.data.additional_kwargs,
       tool_call_id: undefined,
     },
+  });
+}
+
+export function encodeMessageContent(content: MessageContent): MessageChunk[] {
+  if (typeof content === "string") {
+    return [{ type: "text", text: content }];
+  }
+
+  return content.flatMap((chunk) => {
+    if (chunk.type === "text") {
+      return [{ type: "text", text: chunk.text }];
+    }
+
+    return [];
   });
 }

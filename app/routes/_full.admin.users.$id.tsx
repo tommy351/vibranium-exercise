@@ -1,6 +1,7 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { useLoaderData, useParams } from "@remix-run/react";
+import { Await, useLoaderData, useParams } from "@remix-run/react";
 import { desc, eq } from "drizzle-orm";
+import { Suspense } from "react";
 import { Info, InfoContent, InfoItem, InfoTitle } from "~/components/base/info";
 import { PageContainer } from "~/components/base/page-container";
 import { PageTitle } from "~/components/base/page-title";
@@ -35,7 +36,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
     throw new Response("User not found", { status: 404 });
   }
 
-  const threads = await db
+  const threads = db
     .select({
       id: threadsTable.id,
       summary: threadsTable.summary,
@@ -44,7 +45,8 @@ export async function loader({ params }: LoaderFunctionArgs) {
     })
     .from(threadsTable)
     .where(eq(threadsTable.userId, params.id))
-    .orderBy(desc(threadsTable.id));
+    .orderBy(desc(threadsTable.id))
+    .execute();
 
   return { user: users[0], threads };
 }
@@ -77,7 +79,11 @@ export default function AdminUserPage() {
         </InfoItem>
       </Info>
       <SectionTitle>Threads</SectionTitle>
-      <ThreadList threads={threads} />
+      <Suspense fallback={<div>Loading...</div>}>
+        <Await resolve={threads}>
+          {(threads) => <ThreadList threads={threads} />}
+        </Await>
+      </Suspense>
     </PageContainer>
   );
 }

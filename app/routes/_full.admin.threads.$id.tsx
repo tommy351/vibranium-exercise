@@ -1,10 +1,12 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { Link, useLoaderData, useParams } from "@remix-run/react";
+import { Await, Link, useLoaderData, useParams } from "@remix-run/react";
 import { asc, eq } from "drizzle-orm";
+import { Suspense } from "react";
 import Markdown from "react-markdown";
 import { Info, InfoContent, InfoItem, InfoTitle } from "~/components/base/info";
 import { PageContainer } from "~/components/base/page-container";
 import { PageTitle } from "~/components/base/page-title";
+import { SectionTitle } from "~/components/base/section-title";
 import { DateTime } from "~/components/base/time";
 import { ThreadTags } from "~/components/thread/tags";
 import {
@@ -43,11 +45,12 @@ export async function loader({ params }: LoaderFunctionArgs) {
     throw new Response("Thread not found", { status: 404 });
   }
 
-  const messages = await db
+  const messages = db
     .select()
     .from(messagesTable)
     .where(eq(messagesTable.threadId, params.id))
-    .orderBy(asc(messagesTable.id));
+    .orderBy(asc(messagesTable.id))
+    .execute();
 
   return { thread: threads[0], messages };
 }
@@ -77,31 +80,51 @@ export default function AdminThreadPage() {
           </InfoContent>
         </InfoItem>
       </Info>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Time</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>Output</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {messages.map((message) => (
-            <TableRow key={message.id}>
-              <TableCell className="align-top">
-                <DateTime value={message.createdAt} />
-              </TableCell>
-              <TableCell className="align-top">{message.type}</TableCell>
-              <TableCell className="whitespace-normal align-top">
-                {message.content.map((chunk, index) => (
-                  <Chunk key={index} chunk={chunk} />
-                ))}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <SectionTitle>Messages</SectionTitle>
+      <Suspense fallback={<div>Loading...</div>}>
+        <Await resolve={messages}>
+          {(messages) => <MessageList messages={messages} />}
+        </Await>
+      </Suspense>
     </PageContainer>
+  );
+}
+
+function MessageList({
+  messages,
+}: {
+  messages: {
+    id: string;
+    createdAt: Date;
+    type: string;
+    content: MessageChunk[];
+  }[];
+}) {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Time</TableHead>
+          <TableHead>Type</TableHead>
+          <TableHead>Output</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {messages.map((message) => (
+          <TableRow key={message.id}>
+            <TableCell className="align-top">
+              <DateTime value={message.createdAt} />
+            </TableCell>
+            <TableCell className="align-top">{message.type}</TableCell>
+            <TableCell className="whitespace-normal align-top">
+              {message.content.map((chunk, index) => (
+                <Chunk key={index} chunk={chunk} />
+              ))}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }
 

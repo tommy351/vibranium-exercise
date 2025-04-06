@@ -14,6 +14,7 @@ import {
 } from "~/components/ui/table";
 import { db } from "~/db.server/drizzle";
 import { messagesTable, threadsTable } from "~/db.server/schema";
+import { MessageChunk } from "~/db/message";
 
 export const meta: MetaFunction = ({ params }) => {
   return [{ title: `Thread: ${params.id}` }];
@@ -65,9 +66,9 @@ export default function AdminThreadPage() {
                 <DateTime value={message.createdAt} />
               </TableCell>
               <TableCell className="align-top">{message.type}</TableCell>
-              <TableCell className="whitespace-normal align-top prose prose-sm">
+              <TableCell className="whitespace-normal align-top">
                 {message.content.map((chunk, index) => (
-                  <Markdown key={index}>{chunk.text}</Markdown>
+                  <Chunk key={index} chunk={chunk} />
                 ))}
               </TableCell>
             </TableRow>
@@ -75,5 +76,25 @@ export default function AdminThreadPage() {
         </TableBody>
       </Table>
     </>
+  );
+}
+
+function Chunk({ chunk }: { chunk: MessageChunk }) {
+  if (chunk.type === "file") {
+    return (
+      <div className="text-slate-50 rounded-md overflow-hidden">
+        <div className="bg-slate-800 px-4 py-2 flex">
+          <div className="flex-1">{chunk.name}</div>
+          <div>{chunk.mimeType}</div>
+        </div>
+        <pre className="bg-slate-900 p-4">{chunk.content}</pre>
+      </div>
+    );
+  }
+
+  return (
+    <div className="prose prose-sm">
+      <Markdown>{chunk.text}</Markdown>
+    </div>
   );
 }

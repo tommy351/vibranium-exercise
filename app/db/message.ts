@@ -3,4 +3,11 @@ export interface MessageChunkText {
   text: string;
 }
 
-export type MessageChunk = MessageChunkText;
+export interface MessageChunkFile {
+  type: "file";
+  name: string;
+  mimeType: string;
+  content: string;
+}
+
+export type MessageChunk = MessageChunkText | MessageChunkFile;

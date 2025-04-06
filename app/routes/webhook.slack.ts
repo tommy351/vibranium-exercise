@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { logger } from "~/util.server/log";
-import { graph, type User } from "~/llm.server/graph";
+import { graph } from "~/llm.server/graph";
 import { HumanMessage } from "@langchain/core/messages";
 import {
   EventCallbackEvent,
@@ -15,8 +15,11 @@ import { db } from "~/db.server/drizzle";
 import { messagesTable, threadsTable, usersTable } from "~/db.server/schema";
 import { generateBlocksFromMarkdown } from "~/util.server/slack/markdown";
 import { slackClient } from "~/util.server/slack/client";
-import { and, eq, type InferInsertModel, isNotNull, sql } from "drizzle-orm";
+import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { encodeMessageContent } from "~/llm.server/message";
+import { getFileContent } from "~/util.server/slack/file";
+import { MessageChunkFile } from "~/db/message";
+import { escapeXml } from "~/util/xml";
 
 // MIME types started with `text/` are automatically supported.
 const SUPPORTED_FILE_TYPES = new Set([
@@ -45,16 +48,9 @@ async function getUser({
 }: {
   userId: string;
   teamId: string;
-}): Promise<User> {
+}): Promise<{ id: string }> {
   const users = await db
-    .select({
-      id: usersTable.id,
-      name: usersTable.name,
-      firstName: usersTable.firstName,
-      lastName: usersTable.lastName,
-      realName: usersTable.realName,
-      displayName: usersTable.displayName,
-    })
+    .select({ id: usersTable.id })
     .from(usersTable)
     .where(
       and(
@@ -64,31 +60,18 @@ async function getUser({
     );
 
   if (users.length) {
-    const user = users[0];
-
-    return {
-      id: user.id,
-      ...(user.name && { name: user.name }),
-      ...(user.firstName && { firstName: user.firstName }),
-      ...(user.lastName && { lastName: user.lastName }),
-      ...(user.realName && { realName: user.realName }),
-      ...(user.displayName && { displayName: user.displayName }),
-    };
+    return users[0];
   }
 
   const slackUser = await getSlackUser(userId);
-  const user: Omit<User, "id"> = {
-    name: slackUser.name,
-    firstName: slackUser.profile?.first_name,
-    lastName: slackUser.profile?.last_name,
-    realName: slackUser.profile?.real_name,
-    displayName: slackUser.profile?.display_name,
-  };
-
   const result = await db
     .insert(usersTable)
     .values({
-      ...user,
+      name: slackUser.name,
+      firstName: slackUser.profile?.first_name,
+      lastName: slackUser.profile?.last_name,
+      realName: slackUser.profile?.real_name,
+      displayName: slackUser.profile?.display_name,
       email: slackUser.profile?.email,
       slackUserId: userId,
       slackTeamId: teamId,
@@ -107,7 +90,7 @@ async function getUser({
     })
     .returning({ id: usersTable.id });
 
-  return { ...result[0], ...user };
+  return result[0];
 }
 
 async function insertThread({
@@ -135,12 +118,18 @@ async function insertThread({
   return result[0];
 }
 
-function prepareFiles(event: MessageEvent) {
-  return (
-    event.files?.flatMap((file) => {
-      if (!isSupportedFileType(file.mimetype)) return [];
-      return [{ name: file.title, type: file.mimetype, url: file.url_private }];
-    }) ?? []
+async function prepareFiles(event: MessageEvent): Promise<MessageChunkFile[]> {
+  if (!event.files?.length) return [];
+
+  return Promise.all(
+    event.files
+      .filter((file) => isSupportedFileType(file.mimetype))
+      .map(async (file) => ({
+        type: "file",
+        name: file.title,
+        mimeType: file.mimetype,
+        content: await getFileContent(file.url_private),
+      })),
   );
 }
 
@@ -154,18 +143,25 @@ async function handleMessage(context: EventCallbackEvent, event: MessageEvent) {
     userId: user.id,
     threadTs,
   });
-  const inputMessage = new HumanMessage(event.text);
+
+  const files = await prepareFiles(event);
+  let inputContent = event.text;
+
+  for (const file of files) {
+    inputContent += `\n<file name="${escapeXml(file.name)}" type="${escapeXml(file.mimeType)}">${escapeXml(file.content)}</file>`;
+  }
+
+  await db.insert(messagesTable).values({
+    threadId: thread.id,
+    type: "human",
+    content: [{ type: "text", text: event.text }, ...files],
+  });
+
+  logger.debug("Input message inserted successfully");
+
   const output = await graph.invoke(
-    {
-      messages: [inputMessage],
-      files: prepareFiles(event),
-      user,
-    },
-    {
-      configurable: {
-        thread_id: thread.id,
-      },
-    },
+    { messages: [new HumanMessage(inputContent)] },
+    { configurable: { thread_id: thread.id } },
   );
 
   logger.debug("Graph invoked successfully");
@@ -190,17 +186,13 @@ async function handleMessage(context: EventCallbackEvent, event: MessageEvent) {
 
   logger.debug("Message sent successfully");
 
-  const messages = output.messages
-    .slice(output.messages.lastIndexOf(inputMessage))
-    .map(
-      (msg): InferInsertModel<typeof messagesTable> => ({
-        threadId: thread.id,
-        type: msg.getType(),
-        content: encodeMessageContent(msg.content),
-      }),
-    );
+  await db.insert(messagesTable).values({
+    threadId: thread.id,
+    type: lastMessage.getType(),
+    content: encodeMessageContent(lastMessage.content),
+  });
 
-  await db.insert(messagesTable).values(messages);
+  logger.debug("Response message inserted successfully");
 }
 
 export async function action({ request }: ActionFunctionArgs) {

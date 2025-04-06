@@ -3,7 +3,7 @@ function pad(num: number) {
 }
 
 function formatDate(date: Date) {
-  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth())}-${pad(date.getUTCDay())}`;
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
 }
 
 function formatTime(date: Date) {

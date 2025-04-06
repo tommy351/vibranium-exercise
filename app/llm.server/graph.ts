@@ -8,20 +8,14 @@ import {
 } from "@langchain/langgraph";
 import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
 import { ChatOpenAI } from "@langchain/openai";
-import {
-  BaseMessage,
-  HumanMessage,
-  SystemMessage,
-} from "@langchain/core/messages";
+import { BaseMessage, SystemMessage } from "@langchain/core/messages";
 import { pool } from "~/db.server/pool";
 import { logger } from "~/util.server/log";
 import { findPastResponse, generateEmbedding, saveResponse } from "./vector";
 import { runInBackground } from "~/util.server/queue";
 import { encodeMessage, encodeMessages } from "./message";
-import { getFileContent } from "~/util.server/slack/file";
 
 const NODE_GENERATE_VECTOR = "generate_vector";
-const NODE_FETCH_FILE = "fetch_file";
 const NODE_REUSE_HISTORY = "reuse_history";
 const NODE_CALL_MODEL = "call_model";
 const SYSTEM_MESSAGE =
@@ -58,53 +52,13 @@ export interface File {
   url: string;
 }
 
-export interface User {
-  id: string;
-  name?: string;
-  firstName?: string;
-  lastName?: string;
-  realName?: string;
-  displayName?: string;
-}
-
-function escapeXml(input: string) {
-  return input
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&apos;");
-}
-
 const StateAnnotation = Annotation.Root({
   messages: Annotation<BaseMessage[]>({
     reducer: messagesStateReducer,
     default: () => [],
   }),
   vector: Annotation<number[]>,
-  files: Annotation<File[]>,
-  user: Annotation<User>,
 });
-
-async function fetchFile(state: typeof StateAnnotation.State) {
-  const messages: BaseMessage[] = [];
-
-  for (const file of state.files) {
-    const content = await getFileContent(file.url);
-
-    messages.push(
-      new HumanMessage(
-        `<file name="${escapeXml(file.name)}" type="${escapeXml(file.type)}">${escapeXml(content)}</file>`,
-      ),
-    );
-  }
-
-  return {
-    messages,
-    // Reset to empty array after fetch
-    files: [],
-  };
-}
 
 async function generateVector(state: typeof StateAnnotation.State) {
   const vector = await generateEmbedding(state.messages);
@@ -144,12 +98,10 @@ async function callModel(state: typeof StateAnnotation.State) {
 }
 
 const workflow = new StateGraph(StateAnnotation)
-  .addNode(NODE_FETCH_FILE, fetchFile)
   .addNode(NODE_GENERATE_VECTOR, generateVector)
   .addNode(NODE_REUSE_HISTORY, reuseHistory, { ends: [NODE_CALL_MODEL, END] })
   .addNode(NODE_CALL_MODEL, callModel)
-  .addEdge(START, NODE_FETCH_FILE)
-  .addEdge(NODE_FETCH_FILE, NODE_GENERATE_VECTOR)
+  .addEdge(START, NODE_GENERATE_VECTOR)
   .addEdge(NODE_GENERATE_VECTOR, NODE_REUSE_HISTORY);
 
 export const graph = workflow.compile({ checkpointer });

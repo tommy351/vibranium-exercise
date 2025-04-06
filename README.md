@@ -1,40 +1,61 @@
-# Welcome to Remix!
-
-- 📖 [Remix docs](https://remix.run/docs)
+# Exercise
 
 ## Development
 
-Run the dev server:
+Install dependencies.
 
-```shellscript
-npm run dev
+```sh
+pnpm install
+```
+
+Create a `.env` file.
+
+```
+TUNNEL_TOKEN=
+SLACK_TOKEN=
+SLACK_APP_ID=
+SLACK_CLIENT_ID=
+SLACK_CLIENT_SECRET=
+SLACK_SIGNING_SECRET=
+LOG_LEVEL=
+OPENAI_API_KEY=
+SESSION_SECRET=
+BASE_URL=
+```
+
+Run database migrations.
+
+```sh
+docker compose run --rm drizzle migrate
+```
+
+Start the tunnel.
+
+```sh
+docker compose up tunnel
+```
+
+Run tests.
+
+```sh
+pnpm test
+```
+
+Remove all containers, add `--volumes` to remove volumes.
+
+```sh
+docker compose down
 ```
 
 ## Deployment
 
-First, build your app for production:
+### Slack
 
-```sh
-npm run build
-```
-
-Then run the app in production mode:
-
-```sh
-npm start
-```
-
-Now you'll need to pick a host to deploy it to.
-
-### DIY
-
-If you're familiar with deploying Node applications, the built-in Remix app server is production-ready.
-
-Make sure to deploy the output of `npm run build`
-
-- `build/server`
-- `build/client`
-
-## Styling
-
-This template comes with [Tailwind CSS](https://tailwindcss.com/) already configured for a simple default starting experience. You can use whatever css framework you prefer. See the [Vite docs on css](https://vitejs.dev/guide/features.html#css) for more information.
+- Add the following scopes in "Features" > "OAuth & Permissions" > "Scopes" > "Bot Token Scopes".
+  - `chat:write`
+  - `files:read`
+  - `im:history`
+  - `users:read`
+  - `users:read.email`
+- Turn on event subscriptions in "Features" > "Event Subscriptions" > "Enable Events", and subscribe to the following bot events.
+  - `message.im`

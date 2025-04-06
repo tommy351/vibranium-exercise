@@ -1,6 +1,7 @@
 import type { MetaFunction } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import { desc } from "drizzle-orm";
+import { PageContainer } from "~/components/base/page-container";
 import { PageTitle } from "~/components/base/page-title";
 import { DateTime } from "~/components/base/time";
 import {
@@ -36,7 +37,7 @@ export default function AdminUsersPage() {
   const { users } = useLoaderData<typeof loader>();
 
   return (
-    <>
+    <PageContainer>
       <PageTitle>Users</PageTitle>
       <Table>
         <TableHeader>
@@ -62,6 +63,6 @@ export default function AdminUsersPage() {
           ))}
         </TableBody>
       </Table>
-    </>
+    </PageContainer>
   );
 }

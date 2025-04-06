@@ -1,9 +1,12 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { useLoaderData, useParams } from "@remix-run/react";
+import { Link, useLoaderData, useParams } from "@remix-run/react";
 import { asc, eq } from "drizzle-orm";
 import Markdown from "react-markdown";
+import { Info, InfoContent, InfoItem, InfoTitle } from "~/components/base/info";
+import { PageContainer } from "~/components/base/page-container";
 import { PageTitle } from "~/components/base/page-title";
 import { DateTime } from "~/components/base/time";
+import { ThreadTags } from "~/components/thread/tags";
 import {
   Table,
   TableBody,
@@ -26,7 +29,12 @@ export async function loader({ params }: LoaderFunctionArgs) {
   }
 
   const threads = await db
-    .select()
+    .select({
+      id: threadsTable.id,
+      summary: threadsTable.summary,
+      tags: threadsTable.tags,
+      userId: threadsTable.userId,
+    })
     .from(threadsTable)
     .where(eq(threadsTable.id, params.id))
     .limit(1);
@@ -46,11 +54,29 @@ export async function loader({ params }: LoaderFunctionArgs) {
 
 export default function AdminThreadPage() {
   const { id } = useParams();
-  const { messages } = useLoaderData<typeof loader>();
+  const { thread, messages } = useLoaderData<typeof loader>();
 
   return (
-    <>
+    <PageContainer>
       <PageTitle>Thread: {id}</PageTitle>
+      <Info>
+        <InfoItem>
+          <InfoTitle>Summary</InfoTitle>
+          <InfoContent>{thread.summary}</InfoContent>
+        </InfoItem>
+        <InfoItem>
+          <InfoTitle>Tags</InfoTitle>
+          <InfoContent>
+            <ThreadTags tags={thread.tags} />
+          </InfoContent>
+        </InfoItem>
+        <InfoItem>
+          <InfoTitle>User</InfoTitle>
+          <InfoContent>
+            <Link to={`/admin/users/${thread.userId}`}>{thread.userId}</Link>
+          </InfoContent>
+        </InfoItem>
+      </Info>
       <Table>
         <TableHeader>
           <TableRow>
@@ -75,7 +101,7 @@ export default function AdminThreadPage() {
           ))}
         </TableBody>
       </Table>
-    </>
+    </PageContainer>
   );
 }
 

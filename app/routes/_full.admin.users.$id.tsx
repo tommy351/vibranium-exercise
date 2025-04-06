@@ -1,17 +1,10 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { Link, useLoaderData, useParams } from "@remix-run/react";
+import { useLoaderData, useParams } from "@remix-run/react";
 import { desc, eq } from "drizzle-orm";
+import { PageContainer } from "~/components/base/page-container";
 import { PageTitle } from "~/components/base/page-title";
 import { SectionTitle } from "~/components/base/section-title";
-import { DateTime } from "~/components/base/time";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "~/components/ui/table";
+import { ThreadList } from "~/components/thread/list";
 import { db } from "~/db.server/drizzle";
 import { threadsTable, usersTable } from "~/db.server/schema";
 
@@ -35,7 +28,12 @@ export async function loader({ params }: LoaderFunctionArgs) {
   }
 
   const threads = await db
-    .select()
+    .select({
+      id: threadsTable.id,
+      summary: threadsTable.summary,
+      tags: threadsTable.tags,
+      createdAt: threadsTable.createdAt,
+    })
     .from(threadsTable)
     .where(eq(threadsTable.userId, params.id))
     .orderBy(desc(threadsTable.id));
@@ -48,29 +46,10 @@ export default function AdminUserPage() {
   const { threads } = useLoaderData<typeof loader>();
 
   return (
-    <>
+    <PageContainer>
       <PageTitle>User: {id}</PageTitle>
       <SectionTitle>Threads</SectionTitle>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>ID</TableHead>
-            <TableHead>Time</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {threads.map((thread) => (
-            <TableRow key={thread.id}>
-              <TableCell>
-                <Link to={`/admin/threads/${thread.id}`}>{thread.id}</Link>
-              </TableCell>
-              <TableCell>
-                <DateTime value={thread.createdAt} />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </>
+      <ThreadList threads={threads} />
+    </PageContainer>
   );
 }

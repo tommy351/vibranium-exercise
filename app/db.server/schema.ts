@@ -22,6 +22,8 @@ export const responsesTable = pgTable(
     input: jsonb().notNull(),
     output: jsonb().notNull(),
     vector: vector({ dimensions: 1024 }).notNull(),
+    summary: text(),
+    tags: text().array(),
     createdAt: timestamp().notNull().defaultNow(),
   },
   (table) => [
@@ -61,6 +63,8 @@ export const threadsTable = pgTable(
         onDelete: "cascade",
       }),
     slackThreadTs: text(),
+    summary: text(),
+    tags: text().array(),
     createdAt: timestamp().notNull().defaultNow(),
     updatedAt: timestamp().notNull().defaultNow(),
   },

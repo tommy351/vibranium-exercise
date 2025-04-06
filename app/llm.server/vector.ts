@@ -1,10 +1,4 @@
-import {
-  cosineDistance,
-  desc,
-  gt,
-  type InferInsertModel,
-  sql,
-} from "drizzle-orm";
+import { cosineDistance, desc, gt, sql } from "drizzle-orm";
 import { OpenAIEmbeddings } from "@langchain/openai";
 import { BaseMessage, getBufferString } from "@langchain/core/messages";
 import { db } from "~/db.server/drizzle";
@@ -28,7 +22,10 @@ export async function findPastResponse(vector: number[]) {
   const cte = db.$with("similarities").as(
     db
       .select({
+        id: responsesTable.id,
         output: responsesTable.output,
+        summary: responsesTable.summary,
+        tags: responsesTable.tags,
         similarity:
           sql<number>`1 - (${cosineDistance(responsesTable.vector, vector)})`.as(
             "similarity",
@@ -42,20 +39,20 @@ export async function findPastResponse(vector: number[]) {
   const result = await db
     .with(cte)
     .select({
+      id: cte.id,
       output: cte.output,
-      similarity: cte.similarity,
+      summary: cte.summary,
+      tags: cte.tags,
     })
     .from(cte)
-    .where((table) => gt(table.similarity, SIMILARITY_THRESHOLD));
+    .where(gt(cte.similarity, SIMILARITY_THRESHOLD));
 
   if (result.length) {
     logger.debug({ result }, "Found past response");
-    return decodeMessage(result[0].output);
-  }
-}
 
-export async function saveResponse(
-  data: InferInsertModel<typeof responsesTable>,
-) {
-  await db.insert(responsesTable).values(data);
+    return {
+      ...result[0],
+      output: decodeMessage(result[0].output),
+    };
+  }
 }

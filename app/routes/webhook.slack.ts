@@ -157,14 +157,14 @@ async function handleMessage(context: EventCallbackEvent, event: MessageEvent) {
     content: [{ type: "text", text: event.text }, ...files],
   });
 
-  logger.debug("Input message inserted successfully");
+  logger.debug("Input message inserted");
 
   const output = await graph.invoke(
     { messages: [new HumanMessage(inputContent)] },
     { configurable: { thread_id: thread.id } },
   );
 
-  logger.debug("Graph invoked successfully");
+  logger.debug("Graph invoked");
 
   if (!output.messages.length) {
     return;
@@ -184,15 +184,27 @@ async function handleMessage(context: EventCallbackEvent, event: MessageEvent) {
     return;
   }
 
-  logger.debug("Message sent successfully");
+  logger.debug("Message sent");
 
-  await db.insert(messagesTable).values({
-    threadId: thread.id,
-    type: lastMessage.getType(),
-    content: encodeMessageContent(lastMessage.content),
+  await db.transaction(async (tx) => {
+    await tx
+      .update(threadsTable)
+      .set({
+        summary: output.summary,
+        tags: output.tags,
+      })
+      .where(eq(threadsTable.id, thread.id));
+
+    logger.debug("Thread summary updated");
+
+    await tx.insert(messagesTable).values({
+      threadId: thread.id,
+      type: lastMessage.getType(),
+      content: encodeMessageContent(lastMessage.content),
+    });
+
+    logger.debug("Response message inserted");
   });
-
-  logger.debug("Response message inserted successfully");
 }
 
 export async function action({ request }: ActionFunctionArgs) {

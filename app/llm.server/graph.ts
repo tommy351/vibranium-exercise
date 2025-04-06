@@ -103,7 +103,7 @@ async function reuseHistory(state: typeof StateAnnotation.State) {
   return new Command({
     goto: NODE_SUMMARIZE,
     update: {
-      messages: response,
+      messages: response.output,
       summary: state.summary || response.summary,
       tags: state.tags || response.tags,
       responseId: response.id,

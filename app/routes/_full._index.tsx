@@ -1,33 +1,28 @@
-import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
-import { Form, redirect } from "@remix-run/react";
-import { useRef } from "react";
-import { Button } from "~/components/ui/button";
-import { Textarea } from "~/components/ui/textarea";
+import {
+  redirect,
+  type ActionFunctionArgs,
+  type MetaFunction,
+} from "@remix-run/node";
 import { db } from "~/db.server/drizzle";
 import { messagesTable, threadsTable } from "~/db.server/schema";
 import { useSession } from "~/session";
 import { requireLogin } from "~/session.server";
 import { v7 as uuidV7 } from "uuid";
-import { zfd } from "zod-form-data";
-import { z } from "zod";
 import { graph } from "~/llm.server/graph";
 import { HumanMessage } from "@langchain/core/messages";
 import { logger } from "~/util.server/log";
 import { encodeMessageContent } from "~/llm.server/message";
 import { eq } from "drizzle-orm";
+import { ChatForm, chatFormSchema } from "~/components/chat/form";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Home" }];
 };
 
-const formSchema = zfd.formData({
-  text: zfd.text(z.string().min(1)),
-});
-
 export async function action({ request }: ActionFunctionArgs) {
   const session = await requireLogin(request);
   const body = await request.formData();
-  const form = formSchema.safeParse(body);
+  const form = chatFormSchema.safeParse(body);
 
   if (!form.success) {
     return new Response("Invalid form", { status: 400 });
@@ -91,29 +86,5 @@ export default function Index() {
     <div className="flex min-h-svh w-full items-center justify-center">
       <ChatForm />
     </div>
-  );
-}
-
-function ChatForm() {
-  const formRef = useRef<HTMLFormElement>(null);
-
-  return (
-    <Form className="flex flex-col gap-4" ref={formRef} method="post">
-      <Textarea
-        name="text"
-        placeholder="How can I help you?"
-        className="w-120 max-w-full resize-none"
-        required
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
-            event.preventDefault();
-            formRef.current?.submit();
-          }
-        }}
-      />
-      <Button type="submit" className="self-end cursor-pointer">
-        Submit
-      </Button>
-    </Form>
   );
 }

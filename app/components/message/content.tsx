@@ -25,7 +25,7 @@ function Chunk({ chunk }: { chunk: MessageChunk }) {
   }
 
   return (
-    <div className="prose prose-sm">
+    <div className="prose prose-sm max-w-none">
       <Markdown>{chunk.text}</Markdown>
     </div>
   );

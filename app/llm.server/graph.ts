@@ -94,21 +94,21 @@ async function generateVector(state: typeof StateAnnotation.State) {
 async function reuseHistory(state: typeof StateAnnotation.State) {
   const response = await findPastResponse(state.vector);
 
-  if (response) {
-    logger.debug({ response }, "Found past response");
-
-    return new Command({
-      goto: NODE_SUMMARIZE,
-      update: {
-        messages: response,
-        summary: response.summary,
-        tags: response.tags,
-        responseId: response.id,
-      },
-    });
+  if (!response) {
+    return new Command({ goto: NODE_CALL_MODEL });
   }
 
-  return new Command({ goto: NODE_CALL_MODEL });
+  logger.debug({ response }, "Found past response");
+
+  return new Command({
+    goto: NODE_SUMMARIZE,
+    update: {
+      messages: response,
+      summary: state.summary || response.summary,
+      tags: state.tags || response.tags,
+      responseId: response.id,
+    },
+  });
 }
 
 async function callModel(state: typeof StateAnnotation.State) {

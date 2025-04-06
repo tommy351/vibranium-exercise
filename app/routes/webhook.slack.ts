@@ -113,7 +113,11 @@ async function insertThread({
         updatedAt: sql`NOW()`,
       },
     })
-    .returning({ id: threadsTable.id });
+    .returning({
+      id: threadsTable.id,
+      summary: threadsTable.summary,
+      tags: threadsTable.tags,
+    });
 
   return result[0];
 }
@@ -160,7 +164,11 @@ async function handleMessage(context: EventCallbackEvent, event: MessageEvent) {
   logger.debug("Input message inserted");
 
   const output = await graph.invoke(
-    { messages: [new HumanMessage(inputContent)] },
+    {
+      messages: [new HumanMessage(inputContent)],
+      ...(thread.summary && { summary: thread.summary }),
+      ...(thread.tags && { tags: thread.tags }),
+    },
     { configurable: { thread_id: thread.id } },
   );
 
@@ -187,15 +195,18 @@ async function handleMessage(context: EventCallbackEvent, event: MessageEvent) {
   logger.debug("Message sent");
 
   await db.transaction(async (tx) => {
-    await tx
-      .update(threadsTable)
-      .set({
-        summary: output.summary,
-        tags: output.tags,
-      })
-      .where(eq(threadsTable.id, thread.id));
+    // Update thread summary and tags if they don't exist yet
+    if (!thread.summary || !thread.tags) {
+      await tx
+        .update(threadsTable)
+        .set({
+          summary: output.summary,
+          tags: output.tags,
+        })
+        .where(eq(threadsTable.id, thread.id));
 
-    logger.debug("Thread summary updated");
+      logger.debug("Thread summary updated");
+    }
 
     await tx.insert(messagesTable).values({
       threadId: thread.id,

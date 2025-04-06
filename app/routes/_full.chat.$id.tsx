@@ -19,18 +19,24 @@ import { encodeMessageContent } from "~/llm.server/message";
 import { requireLogin } from "~/session.server";
 import { logger } from "~/util.server/log";
 
-export const meta: MetaFunction = () => {
-  return [{ title: "Chat" }];
-};
-
-export async function loader({ request, params }: LoaderFunctionArgs) {
+async function getThread({
+  request,
+  params,
+}: {
+  request: Request;
+  params: Record<string, string | undefined>;
+}) {
   if (!params.id) {
     throw new Response("Thread not found", { status: 404 });
   }
 
   const session = await requireLogin(request);
   const threads = await db
-    .select({ summary: threadsTable.summary })
+    .select({
+      id: threadsTable.id,
+      summary: threadsTable.summary,
+      tags: threadsTable.tags,
+    })
     .from(threadsTable)
     .where(
       and(
@@ -44,6 +50,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     throw new Response("Thread not found", { status: 404 });
   }
 
+  return threads[0];
+}
+
+export async function loader({ request, params }: LoaderFunctionArgs) {
+  const thread = await getThread({ request, params });
   const messages = await db
     .select({
       id: messagesTable.id,
@@ -51,20 +62,13 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       content: messagesTable.content,
     })
     .from(messagesTable)
-    .where(eq(messagesTable.threadId, params.id))
+    .where(eq(messagesTable.threadId, thread.id))
     .orderBy(asc(messagesTable.id));
 
-  return { thread: threads[0], messages };
+  return { thread, messages };
 }
 
 export async function action({ request, params }: ActionFunctionArgs) {
-  const threadId = params.id;
-
-  if (!threadId) {
-    throw new Response("Thread not found", { status: 404 });
-  }
-
-  const session = await requireLogin(request);
   const body = await request.formData();
   const form = chatFormSchema.safeParse(body);
 
@@ -72,32 +76,13 @@ export async function action({ request, params }: ActionFunctionArgs) {
     throw new Response("Invalid form", { status: 400 });
   }
 
+  const thread = await getThread({ request, params });
+
   const messages = await db.transaction(async (tx) => {
-    const threads = await tx
-      .select({
-        id: threadsTable.id,
-        summary: threadsTable.summary,
-        tags: threadsTable.tags,
-      })
-      .from(threadsTable)
-      .where(
-        and(
-          eq(threadsTable.id, threadId),
-          eq(threadsTable.userId, session.userId),
-        ),
-      )
-      .limit(1);
-
-    if (!threads.length) {
-      throw new Response("Thread not found", { status: 404 });
-    }
-
-    const thread = threads[0];
-
     const humanMessages = await tx
       .insert(messagesTable)
       .values({
-        threadId,
+        threadId: thread.id,
         type: "human",
         content: [{ type: "text", text: form.data.text }],
       })
@@ -111,7 +96,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
         ...(thread.summary && { summary: thread.summary }),
         ...(thread.tags && { tags: thread.tags }),
       },
-      { configurable: { thread_id: threadId } },
+      { configurable: { thread_id: thread.id } },
     );
 
     logger.debug("Graph invoked");
@@ -126,7 +111,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
           summary: output.summary,
           tags: output.tags,
         })
-        .where(eq(threadsTable.id, threadId));
+        .where(eq(threadsTable.id, thread.id));
 
       logger.debug("Thread summary updated");
     }
@@ -148,17 +133,21 @@ export async function action({ request, params }: ActionFunctionArgs) {
   return { messages };
 }
 
+export const meta: MetaFunction<typeof loader> = ({ data }) => {
+  return [{ title: data?.thread.summary ?? "Chat" }];
+};
+
 export default function ChatPage() {
   const { thread, messages } = useLoaderData<typeof loader>();
 
   return (
-    <PageContainer className="min-h-svh">
-      <PageTitle>{thread.summary}</PageTitle>
-      <div className="relative flex-1 flex flex-col">
-        <MessageList messages={messages} />
-        <FetcherChatForm />
-      </div>
-    </PageContainer>
+    <div className="min-h-svh relative">
+      <PageTitle className="p-4 sticky top-0 bg-background">
+        {thread.summary}
+      </PageTitle>
+      <MessageList messages={messages} />
+      <FetcherChatForm />
+    </div>
   );
 }
 
@@ -172,7 +161,7 @@ function MessageList({
   }[];
 }) {
   return (
-    <div className="flex flex-col gap-4 flex-1">
+    <div className="flex flex-col gap-4 flex-1 p-4">
       {messages.map((message) => (
         <div
           key={message.id}
@@ -193,8 +182,8 @@ function FetcherChatForm() {
   const fetcher = useFetcher();
 
   return (
-    <div className="bottom-0 sticky pt-6 pb-4 bg-background flex justify-center">
-      <ChatForm navigate={false} submitting={fetcher.state === "loading"} />
+    <div className="bottom-0 sticky p-4 bg-background flex justify-center">
+      <ChatForm navigate={false} submitting={fetcher.state !== "idle"} />
     </div>
   );
 }

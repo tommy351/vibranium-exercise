@@ -1,13 +1,11 @@
-import { ChatPostMessageArguments, WebClient } from "@slack/web-api";
+import { ChatPostMessageArguments } from "@slack/web-api";
 import { createHmac, timingSafeEqual } from "crypto";
 import { z } from "zod";
 import { requireEnv } from "~/util.server/env";
-import { SLACK_TOKEN } from "./config";
+import { slackClient } from "./client";
 
 const APP_ID = requireEnv("SLACK_APP_ID");
 const SIGNING_SECRET = requireEnv("SLACK_SIGNING_SECRET");
-
-const client = new WebClient(SLACK_TOKEN);
 
 // https://api.slack.com/events/url_verification
 const urlVerificationEventSchema = z.object({
@@ -44,7 +42,10 @@ export type MessageEvent = z.infer<typeof messageEventSchema>;
 const eventCallbackEventSchema = z.object({
   type: z.literal("event_callback"),
   event: z.discriminatedUnion("type", [messageEventSchema]),
+  team_id: z.string(),
 });
+
+export type EventCallbackEvent = z.infer<typeof eventCallbackEventSchema>;
 
 // https://api.slack.com/apis/events-api#callback-field
 const outerEventSchema = z.discriminatedUnion("type", [
@@ -89,7 +90,7 @@ export async function parseEventRequest(request: Request): Promise<OuterEvent> {
 }
 
 export function postMessage(message: ChatPostMessageArguments) {
-  return client.chat.postMessage(message);
+  return slackClient.chat.postMessage(message);
 }
 
 export function isBotMessage(event: MessageEvent) {

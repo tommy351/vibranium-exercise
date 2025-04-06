@@ -52,10 +52,18 @@ const checkpointer = new PostgresSaver(pool);
 
 await checkpointer.setup();
 
-interface File {
+export interface File {
   name: string;
   type: string;
   url: string;
+}
+
+export interface User {
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  realName?: string;
+  displayName?: string;
 }
 
 function escapeXml(input: string) {
@@ -74,6 +82,7 @@ const StateAnnotation = Annotation.Root({
   }),
   vector: Annotation<number[]>,
   files: Annotation<File[]>,
+  user: Annotation<User>,
 });
 
 async function fetchFile(state: typeof StateAnnotation.State) {

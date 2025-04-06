@@ -1,8 +1,9 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { logger } from "~/util.server/log";
-import { graph } from "~/llm.server/graph";
+import { graph, type User } from "~/llm.server/graph";
 import { HumanMessage } from "@langchain/core/messages";
 import {
+  EventCallbackEvent,
   isBotMessage,
   type MessageEvent,
   type OuterEvent,
@@ -11,8 +12,10 @@ import {
 } from "~/util.server/slack/event";
 import { runInBackground } from "~/util.server/queue";
 import { db } from "~/db.server/drizzle";
-import { logsTable } from "~/db.server/schema";
+import { logsTable, usersTable } from "~/db.server/schema";
 import { generateBlocksFromMarkdown } from "~/util.server/slack/markdown";
+import { slackClient } from "~/util.server/slack/client";
+import { and, eq, sql } from "drizzle-orm";
 
 // MIME types started with `text/` are automatically supported.
 const SUPPORTED_FILE_TYPES = new Set([
@@ -25,27 +28,114 @@ function isSupportedFileType(mimeType: string) {
   return mimeType.startsWith("text/") || SUPPORTED_FILE_TYPES.has(mimeType);
 }
 
-async function handleMessage(event: MessageEvent) {
+async function getSlackUser(id: string) {
+  const res = await slackClient.users.info({ user: id });
+
+  if (!res.user) {
+    logger.error(
+      { userId: id, response: res },
+      "Failed to fetch Slack user info",
+    );
+    return;
+  }
+
+  return res.user;
+}
+
+async function getUser({
+  userId,
+  teamId,
+}: {
+  userId: string;
+  teamId: string;
+}): Promise<User | undefined> {
+  const users = await db
+    .select({
+      name: usersTable.name,
+      firstName: usersTable.firstName,
+      lastName: usersTable.lastName,
+      realName: usersTable.realName,
+      displayName: usersTable.displayName,
+    })
+    .from(usersTable)
+    .where(
+      and(
+        eq(usersTable.slackTeamId, teamId),
+        eq(usersTable.slackUserId, userId),
+      ),
+    );
+
+  if (users.length) {
+    const user = users[0];
+
+    return {
+      name: user.name || undefined,
+      firstName: user.firstName || undefined,
+      lastName: user.lastName || undefined,
+      realName: user.realName || undefined,
+      displayName: user.displayName || undefined,
+    };
+  }
+
+  const slackUser = await getSlackUser(userId);
+  if (!slackUser) return;
+
+  const user: User = {
+    name: slackUser.name,
+    firstName: slackUser.profile?.first_name,
+    lastName: slackUser.profile?.last_name,
+    realName: slackUser.profile?.real_name,
+    displayName: slackUser.profile?.display_name,
+  };
+
+  await db
+    .insert(usersTable)
+    .values({
+      ...user,
+      email: slackUser.profile?.email,
+      slackUserId: userId,
+      slackTeamId: teamId,
+    })
+    .onConflictDoUpdate({
+      target: [usersTable.slackTeamId, usersTable.slackUserId],
+      set: {
+        name: sql`EXCLUDED.name`,
+        firstName: sql`EXCLUDED.first_name`,
+        lastName: sql`EXCLUDED.last_name`,
+        realName: sql`EXCLUDED.real_name`,
+        displayName: sql`EXCLUDED.display_name`,
+        email: sql`EXCLUDED.email`,
+        updatedAt: sql`NOW()`,
+      },
+    });
+
+  return user;
+}
+
+function prepareFiles(event: MessageEvent) {
+  return (
+    event.files?.flatMap((file) => {
+      if (!isSupportedFileType(file.mimetype)) return [];
+      return [{ name: file.title, type: file.mimetype, url: file.url_private }];
+    }) ?? []
+  );
+}
+
+async function handleMessage(context: EventCallbackEvent, event: MessageEvent) {
+  const user = await getUser({
+    userId: event.user,
+    teamId: context.team_id,
+  });
   const threadTs = event.thread_ts || event.ts;
   const output = await graph.invoke(
     {
       messages: [new HumanMessage(event.text)],
-      files:
-        event.files?.flatMap((file) => {
-          if (!isSupportedFileType(file.mimetype)) return [];
-          return [
-            { name: file.title, type: file.mimetype, url: file.url_private },
-          ];
-        }) ?? [],
+      files: prepareFiles(event),
+      user,
     },
     {
       configurable: {
         thread_id: `${event.channel}-${threadTs}`,
-      },
-      metadata: {
-        user: event.user,
-        channel: event.channel,
-        thread: threadTs,
       },
     },
   );
@@ -107,7 +197,7 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   // Run the handler in background
-  runInBackground(() => handleMessage(body.event));
+  runInBackground(() => handleMessage(body, body.event));
 
   return new Response("Received", { status: 202 });
 }

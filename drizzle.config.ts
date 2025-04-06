@@ -3,7 +3,7 @@ import { requireEnv } from "./app/util.server/env";
 
 export default defineConfig({
   out: "./drizzle",
-  schema: "./app/db/schema.ts",
+  schema: "./app/db.server/schema.ts",
   dialect: "postgresql",
   casing: "snake_case",
   dbCredentials: {

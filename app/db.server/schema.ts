@@ -6,6 +6,7 @@ import {
   jsonb,
   index,
   text,
+  unique,
 } from "drizzle-orm/pg-core";
 import { v7 as uuidV7 } from "uuid";
 
@@ -36,3 +37,23 @@ export const logsTable = pgTable("logs", {
   output: text().notNull(),
   createdAt: timestamp().notNull().defaultNow(),
 });
+
+export const usersTable = pgTable(
+  "users",
+  {
+    id: uuid()
+      .primaryKey()
+      .$defaultFn(() => uuidV7()),
+    name: text(),
+    email: text(),
+    firstName: text(),
+    lastName: text(),
+    realName: text(),
+    displayName: text(),
+    slackUserId: text().notNull(),
+    slackTeamId: text().notNull(),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => [unique().on(table.slackTeamId, table.slackUserId)],
+);

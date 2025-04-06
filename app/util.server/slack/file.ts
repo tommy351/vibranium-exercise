@@ -1,4 +1,4 @@
-import { SLACK_TOKEN } from "./config";
+import { SLACK_TOKEN } from "./client";
 
 export async function getFileContent(url: string): Promise<string> {
   const res = await fetch(url, {

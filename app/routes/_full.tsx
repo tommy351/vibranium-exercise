@@ -7,9 +7,9 @@ import { getSession } from "~/session.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const session = await getSession(request);
-  const slackUserId = session.get("slackUserId");
+  const userId = session.get("userId");
   const data: ClientSessionData = {
-    ...(slackUserId && { slackUserId }),
+    ...(userId && { userId: userId }),
   };
 
   return data;
@@ -23,9 +23,7 @@ export default function FullPage() {
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
-          <div className="p-4">
-            <Outlet />
-          </div>
+          <Outlet />
         </SidebarInset>
       </SidebarProvider>
     </SessionProvider>

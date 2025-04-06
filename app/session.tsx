@@ -1,7 +1,7 @@
 import { createContext, ReactNode, useContext } from "react";
 
 export interface ClientSessionData {
-  slackUserId?: string;
+  userId?: string;
 }
 
 const SessionContext = createContext<ClientSessionData>({});

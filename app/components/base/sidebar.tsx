@@ -1,9 +1,17 @@
-import { Link, useLocation } from "@remix-run/react";
-import { LayoutDashboard, LogIn, MessagesSquare, Users } from "lucide-react";
+import { Form, Link, useLocation } from "@remix-run/react";
+import {
+  LayoutDashboard,
+  LogIn,
+  LogOut,
+  MessageCirclePlus,
+  MessagesSquare,
+  Users,
+} from "lucide-react";
 import { type ReactNode } from "react";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -44,8 +52,16 @@ export function AppSidebar() {
     <Sidebar>
       <Header />
       <SidebarContent>
-        {session.slackUserId ? <AdminGroup /> : <GuestGroup />}
+        {session.userId ? (
+          <>
+            <UserGroup />
+            <AdminGroup />
+          </>
+        ) : (
+          <GuestGroup />
+        )}
       </SidebarContent>
+      <Footer />
     </Sidebar>
   );
 }
@@ -60,6 +76,36 @@ function Header() {
   );
 }
 
+function Footer() {
+  const session = useSession();
+  if (!session.userId) return null;
+
+  return (
+    <SidebarFooter>
+      <SidebarGroup>
+        <SidebarGroupContent>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <LogOutButton />
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+    </SidebarFooter>
+  );
+}
+
+function LogOutButton() {
+  return (
+    <Form method="post" action="/logout" reloadDocument>
+      <SidebarMenuButton className="cursor-pointer" type="submit">
+        <LogOut />
+        <span>Log out</span>
+      </SidebarMenuButton>
+    </Form>
+  );
+}
+
 function GuestGroup() {
   return (
     <SidebarGroup>
@@ -70,6 +116,25 @@ function GuestGroup() {
               <Link to="/login">
                 <LogIn />
                 <span>Log in</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+}
+
+function UserGroup() {
+  return (
+    <SidebarGroup>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild className="text-primary">
+              <Link to="/">
+                <MessageCirclePlus />
+                <span>New chat</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

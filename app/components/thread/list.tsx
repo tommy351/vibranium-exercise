@@ -40,11 +40,19 @@ export function ThreadList({
         {threads.map((thread) => (
           <TableRow key={thread.id}>
             <TableCell>
-              <Link to={`/admin/threads/${thread.id}`}>{thread.id}</Link>
+              <Link
+                to={`/admin/threads/${thread.id}`}
+                className="hover:underline"
+              >
+                {thread.id}
+              </Link>
             </TableCell>
             {showUserId && (
               <TableCell>
-                <Link to={`/admin/users/${thread.userId}`}>
+                <Link
+                  to={`/admin/users/${thread.userId}`}
+                  className="hover:underline"
+                >
                   {thread.userId}
                 </Link>
               </TableCell>

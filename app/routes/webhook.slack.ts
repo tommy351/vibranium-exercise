@@ -20,6 +20,7 @@ import { encodeMessageContent } from "~/llm.server/message";
 import { getFileContent } from "~/util.server/slack/file";
 import { MessageChunkFile } from "~/db/message";
 import { escapeXml } from "~/util/xml";
+import { insertUser } from "~/db.server/user";
 
 // MIME types started with `text/` are automatically supported.
 const SUPPORTED_FILE_TYPES = new Set([
@@ -64,33 +65,16 @@ async function getUser({
   }
 
   const slackUser = await getSlackUser(userId);
-  const result = await db
-    .insert(usersTable)
-    .values({
-      name: slackUser.name,
-      firstName: slackUser.profile?.first_name,
-      lastName: slackUser.profile?.last_name,
-      realName: slackUser.profile?.real_name,
-      displayName: slackUser.profile?.display_name,
-      email: slackUser.profile?.email,
-      slackUserId: userId,
-      slackTeamId: teamId,
-    })
-    .onConflictDoUpdate({
-      target: [usersTable.slackTeamId, usersTable.slackUserId],
-      set: {
-        name: sql`EXCLUDED.name`,
-        firstName: sql`EXCLUDED.first_name`,
-        lastName: sql`EXCLUDED.last_name`,
-        realName: sql`EXCLUDED.real_name`,
-        displayName: sql`EXCLUDED.display_name`,
-        email: sql`EXCLUDED.email`,
-        updatedAt: sql`NOW()`,
-      },
-    })
-    .returning({ id: usersTable.id });
 
-  return result[0];
+  return insertUser({
+    name: slackUser.name,
+    firstName: slackUser.profile?.first_name,
+    lastName: slackUser.profile?.last_name,
+    realName: slackUser.profile?.real_name,
+    email: slackUser.profile?.email,
+    slackUserId: userId,
+    slackTeamId: teamId,
+  });
 }
 
 async function insertThread({
@@ -173,10 +157,6 @@ async function handleMessage(context: EventCallbackEvent, event: MessageEvent) {
   );
 
   logger.debug("Graph invoked");
-
-  if (!output.messages.length) {
-    return;
-  }
 
   const lastMessage = output.messages[output.messages.length - 1];
   const text = lastMessage.text;

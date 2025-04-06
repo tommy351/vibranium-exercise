@@ -27,6 +27,7 @@ export function buildAuthUrl({ codeChallenge }: { codeChallenge: string }) {
 
 const tokenSchema = z.object({
   ok: z.literal(true),
+  access_token: z.string(),
   id_token: z.string(),
 });
 
@@ -69,5 +70,5 @@ export async function getToken({
     audience: CLIENT_ID,
   });
 
-  return payload;
+  return { accessToken: token.access_token, idToken: payload };
 }

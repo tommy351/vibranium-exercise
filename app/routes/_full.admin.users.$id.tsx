@@ -6,6 +6,7 @@ import { Info, InfoContent, InfoItem, InfoTitle } from "~/components/base/info";
 import { PageContainer } from "~/components/base/page-container";
 import { PageTitle } from "~/components/base/page-title";
 import { SectionTitle } from "~/components/base/section-title";
+import { DateTime } from "~/components/base/time";
 import { ThreadList } from "~/components/thread/list";
 import { db } from "~/db.server/drizzle";
 import { threadsTable, usersTable } from "~/db.server/schema";
@@ -27,6 +28,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
       realName: usersTable.realName,
       slackUserId: usersTable.slackUserId,
       slackTeamId: usersTable.slackTeamId,
+      createdAt: usersTable.createdAt,
     })
     .from(usersTable)
     .where(eq(usersTable.id, params.id))
@@ -75,6 +77,12 @@ export default function AdminUserPage() {
           <InfoTitle>Slack</InfoTitle>
           <InfoContent>
             {user.slackTeamId} / {user.slackUserId}
+          </InfoContent>
+        </InfoItem>
+        <InfoItem>
+          <InfoTitle>Created Time</InfoTitle>
+          <InfoContent>
+            <DateTime value={user.createdAt} />
           </InfoContent>
         </InfoItem>
       </Info>

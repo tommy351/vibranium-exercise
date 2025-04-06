@@ -52,7 +52,12 @@ export default function AdminUsersPage() {
           {users.map((user) => (
             <TableRow key={user.id}>
               <TableCell>
-                <Link to={`/admin/users/${user.id}`}>{user.id}</Link>
+                <Link
+                  to={`/admin/users/${user.id}`}
+                  className="hover:underline"
+                >
+                  {user.id}
+                </Link>
               </TableCell>
               <TableCell>{user.name}</TableCell>
               <TableCell>{user.email}</TableCell>

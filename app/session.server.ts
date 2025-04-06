@@ -2,7 +2,7 @@ import { createCookieSessionStorage, redirect, Session } from "@remix-run/node";
 import { requireEnv } from "./util.server/env";
 
 export interface SessionData {
-  slackUserId?: string;
+  userId?: string;
 }
 
 export interface SessionFlashData {
@@ -54,8 +54,11 @@ export async function commitSession(
 
 export async function requireLogin(request: Request) {
   const session = await getSession(request);
+  const userId = session.get("userId");
 
-  if (!session.get("slackUserId")) {
+  if (!userId) {
     throw redirect("/login");
   }
+
+  return { userId };
 }

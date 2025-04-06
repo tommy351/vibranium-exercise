@@ -3,17 +3,17 @@ function pad(num: number) {
 }
 
 function formatDate(date: Date) {
-  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
 function formatTime(date: Date) {
-  return `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`;
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
 export function DateTime({ value }: { value: Date }) {
   return (
-    <time dateTime={value.toISOString()}>
-      {formatDate(value)} {formatTime(value)} UTC
+    <time dateTime={value.toISOString()} title={value.toLocaleString()}>
+      {formatDate(value)} {formatTime(value)}
     </time>
   );
 }

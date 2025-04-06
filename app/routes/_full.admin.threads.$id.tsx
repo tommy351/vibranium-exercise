@@ -2,12 +2,12 @@ import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { Await, Link, useLoaderData, useParams } from "@remix-run/react";
 import { asc, eq } from "drizzle-orm";
 import { Suspense } from "react";
-import Markdown from "react-markdown";
 import { Info, InfoContent, InfoItem, InfoTitle } from "~/components/base/info";
 import { PageContainer } from "~/components/base/page-container";
 import { PageTitle } from "~/components/base/page-title";
 import { SectionTitle } from "~/components/base/section-title";
 import { DateTime } from "~/components/base/time";
+import { MessageContent } from "~/components/message/content";
 import { ThreadTags } from "~/components/thread/tags";
 import {
   Table,
@@ -36,6 +36,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
       summary: threadsTable.summary,
       tags: threadsTable.tags,
       userId: threadsTable.userId,
+      createdAt: threadsTable.createdAt,
     })
     .from(threadsTable)
     .where(eq(threadsTable.id, params.id))
@@ -76,7 +77,18 @@ export default function AdminThreadPage() {
         <InfoItem>
           <InfoTitle>User</InfoTitle>
           <InfoContent>
-            <Link to={`/admin/users/${thread.userId}`}>{thread.userId}</Link>
+            <Link
+              to={`/admin/users/${thread.userId}`}
+              className="hover:underline"
+            >
+              {thread.userId}
+            </Link>
+          </InfoContent>
+        </InfoItem>
+        <InfoItem>
+          <InfoTitle>Created Time</InfoTitle>
+          <InfoContent>
+            <DateTime value={thread.createdAt} />
           </InfoContent>
         </InfoItem>
       </Info>
@@ -117,33 +129,11 @@ function MessageList({
             </TableCell>
             <TableCell className="align-top">{message.type}</TableCell>
             <TableCell className="whitespace-normal align-top">
-              {message.content.map((chunk, index) => (
-                <Chunk key={index} chunk={chunk} />
-              ))}
+              <MessageContent chunks={message.content} />
             </TableCell>
           </TableRow>
         ))}
       </TableBody>
     </Table>
-  );
-}
-
-function Chunk({ chunk }: { chunk: MessageChunk }) {
-  if (chunk.type === "file") {
-    return (
-      <div className="text-slate-50 rounded-md overflow-hidden">
-        <div className="bg-slate-800 px-4 py-2 flex">
-          <div className="flex-1">{chunk.name}</div>
-          <div>{chunk.mimeType}</div>
-        </div>
-        <pre className="bg-slate-900 p-4">{chunk.content}</pre>
-      </div>
-    );
-  }
-
-  return (
-    <div className="prose prose-sm">
-      <Markdown>{chunk.text}</Markdown>
-    </div>
   );
 }

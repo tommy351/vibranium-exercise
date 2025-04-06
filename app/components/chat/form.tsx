@@ -1,4 +1,4 @@
-import { Form } from "@remix-run/react";
+import { Form, FormProps, SubmitOptions, useSubmit } from "@remix-run/react";
 import { useRef } from "react";
 import { Textarea } from "~/components/ui/textarea";
 import { Button } from "~/components/ui/button";
@@ -20,15 +20,16 @@ export function ChatForm({
   submitting?: boolean;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
+  const submit = useSubmit();
+  const formProps: FormProps & SubmitOptions = {
+    method: "post",
+    navigate,
+    fetcherKey,
+    preventScrollReset: true,
+  };
 
   return (
-    <Form
-      className="flex flex-col gap-4"
-      ref={formRef}
-      method="post"
-      navigate={navigate}
-      fetcherKey={fetcherKey}
-    >
+    <Form className="flex flex-col gap-4" ref={formRef} {...formProps}>
       <Textarea
         name="text"
         placeholder="How can I help you?"
@@ -37,7 +38,10 @@ export function ChatForm({
         onKeyDown={(event) => {
           if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
             event.preventDefault();
-            formRef.current?.submit();
+
+            if (formRef.current) {
+              submit(formRef.current, formProps);
+            }
           }
         }}
       />
